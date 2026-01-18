@@ -1,5 +1,6 @@
 """Hivecrew API client."""
 
+import json as json_lib
 import os
 from typing import Any, Optional
 
@@ -63,7 +64,6 @@ class HivecrewClient:
         self._session.headers.update(
             {
                 "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
             }
         )
 
@@ -102,20 +102,31 @@ class HivecrewClient:
         """
         url = f"{self.base_url}{path}"
 
-        # For file uploads, don't send Content-Type header (let requests set it)
-        headers = {}
+        # Build headers based on request type
+        headers: dict[str, str] = {}
+
         if files:
+            # For file uploads, only set auth (let requests set multipart content-type)
             headers = {"Authorization": f"Bearer {self.api_key}"}
+            request_data = data
+            request_body = None
+        elif json is not None:
+            # For JSON requests, explicitly serialize and set content-type
+            headers = {"Content-Type": "application/json"}
+            request_body = json_lib.dumps(json)
+            request_data = None
+        else:
+            request_body = None
+            request_data = data
 
         try:
             response = self._session.request(
                 method=method,
                 url=url,
                 params=params,
-                json=json,
-                data=data,
+                data=request_body if json is not None else request_data,
                 files=files,
-                headers=headers if files else None,
+                headers=headers if headers else None,
                 timeout=self.timeout,
                 stream=stream,
             )

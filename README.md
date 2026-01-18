@@ -1,6 +1,6 @@
 # Hivecrew Python SDK
 
-A Python client library for the [Hivecrew](https://hivecrew.app) REST API, enabling programmatic control of computer-use agent tasks.
+A Python client library for the [Hivecrew](https://github.com/johnbean393/Hivecrew) REST API, enabling programmatic control of computer-use agent tasks.
 
 ## Installation
 
@@ -44,17 +44,21 @@ client = HivecrewClient(api_key="hc_xxx")
 The `run()` method creates a task and waits for it to complete:
 
 ```python
-task = client.tasks.run(
+result = client.tasks.run(
     description="Open Safari and search for Python tutorials",
     provider_name="OpenRouter",
     model_id="anthropic/claude-sonnet-4.5",
-    poll_interval=5.0,   # Check status every 5 seconds
-    timeout=1200.0       # Fail after 20 minutes
+    output_directory="./outputs",  # Where Hivecrew copies output files
+    poll_interval=5.0,             # Check status every 5 seconds
+    timeout=1200.0                 # Fail after 20 minutes
 )
 
-print(f"Task {task.status}: {task.result_summary}")
-print(f"Success: {task.was_successful}")
-print(f"Steps: {task.step_count}, Duration: {task.duration}s")
+print(f"Task {result.status}: {result.result_summary}")
+print(f"Success: {result.was_successful}")
+print(f"Output files: {len(result.output_files)}")
+
+# Access full task details via result.task
+print(f"Steps: {result.task.step_count}, Duration: {result.task.duration}s")
 ```
 
 ### Creating a Task (Non-Blocking)
@@ -128,6 +132,77 @@ path = client.tasks.download_file(
     "./downloads/"
 )
 print(f"Downloaded to {path}")
+```
+
+### Example: File Processing with Deliverables
+
+This example demonstrates a full workflow where you pass a file to the agent, the agent processes it, and you receive the modified file as a deliverable.
+
+**Scenario:** You have an incomplete acrostic poem and want the agent to complete it.
+
+First, create an input file `poem.txt`:
+
+```text
+P -
+Y -
+T -
+H -
+O -
+N -
+```
+
+Then run the task:
+
+```python
+from hivecrew import HivecrewClient
+
+client = HivecrewClient()
+
+# Run a task with input files and custom output directory
+result = client.tasks.run(
+    description="""
+    Complete the provided acrostic poem.
+    Save the completed poem to the outbox.
+    """,
+    
+    provider_name="OpenRouter",
+    model_id="anthropic/claude-sonnet-4.5",
+    files=["./poem.txt"],        # Upload input file(s)
+    output_directory="./output", # Where Hivecrew copies output files
+    timeout=300.0
+)
+
+if result.was_successful:
+    print(f"Task completed: {result.result_summary}")
+    
+    print("\nOutput files:")
+    for path in result.output_files:
+        print(f"  - {path}")
+    
+    # Read and display the result
+    if result.output_files:
+        with open(result.output_files[0], "r") as f:
+            print("\nCompleted poem:")
+            print(f.read())
+else:
+    print(f"Task failed: {result.result_summary}")
+```
+
+**Example output:**
+
+```text
+Task completed: Successfully completed the acrostic poem
+
+Output files:
+  - output/poem.txt
+
+Completed poem:
+P - Programmers write with logic and care
+Y - Yielding solutions from lines we declare  
+T - Typing away through the night and the day
+H - Handling errors that stand in our way
+O - Objects and functions, the tools of our trade
+N - New innovations from code we have made
 ```
 
 ### Providers and Models
@@ -236,14 +311,14 @@ except HivecrewError as e:
 | Status | Description |
 |--------|-------------|
 | `queued` | Waiting to start |
-| `waitingForVM` | Waiting for a VM to become available |
+| `waiting_for_vm` | Waiting for a VM to become available |
 | `running` | Currently executing |
 | `paused` | Paused, waiting for user action |
 | `completed` | Finished successfully |
 | `failed` | Failed with an error |
 | `cancelled` | Cancelled by user |
-| `timedOut` | Exceeded time limit |
-| `maxIterations` | Exceeded iteration limit |
+| `timed_out` | Exceeded time limit |
+| `max_iterations` | Exceeded iteration limit |
 
 ## Requirements
 

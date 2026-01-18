@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union
 
@@ -11,6 +12,42 @@ from hivecrew.models import Task, TaskAction, TaskFilesResponse, TaskList, TaskS
 
 if TYPE_CHECKING:
     from hivecrew.client import HivecrewClient
+
+
+@dataclass
+class TaskResult:
+    """Result of a completed task run, including any output files.
+
+    Attributes:
+        task: The completed Task object with full details.
+        output_files: List of paths to output files collected from the output directory.
+    """
+
+    task: Task
+    output_files: list[Path] = field(default_factory=list)
+
+    # Convenience properties to access common task attributes
+    @property
+    def id(self) -> str:
+        return self.task.id
+
+    @property
+    def status(self) -> TaskStatus:
+        return self.task.status
+
+    @property
+    def was_successful(self) -> Optional[bool]:
+        return self.task.was_successful
+
+    @property
+    def result_summary(self) -> Optional[str]:
+        return self.task.result_summary
+
+    # Backwards compatibility alias
+    @property
+    def downloaded_files(self) -> list[Path]:
+        """Alias for output_files (deprecated, use output_files instead)."""
+        return self.output_files
 
 
 class TasksResource:
@@ -28,6 +65,7 @@ class TasksResource:
         provider_name: str,
         model_id: str,
         files: Optional[list[Union[str, Path]]] = None,
+        output_directory: Optional[Union[str, Path]] = None,
     ) -> Task:
         """Create a new task.
 
@@ -36,17 +74,27 @@ class TasksResource:
             provider_name: The AI provider name (e.g., "OpenRouter").
             model_id: The model ID (e.g., "anthropic/claude-sonnet-4.5").
             files: Optional list of file paths to upload with the task.
+            output_directory: Optional local directory where Hivecrew should copy
+                output files from the VM's outbox. Overrides the default output
+                directory configured in Hivecrew settings.
+                Example: "./task_outputs"
 
         Returns:
             The created task.
 
         Example:
             >>> task = client.tasks.create(
-            ...     description="Open Safari and search for Python",
+            ...     description="Generate a report and save it to the outbox",
             ...     provider_name="OpenRouter",
-            ...     model_id="anthropic/claude-sonnet-4.5"
+            ...     model_id="anthropic/claude-sonnet-4.5",
+            ...     output_directory="./outputs"
             ... )
         """
+        # Convert output_directory to absolute path string
+        output_dir_str: Optional[str] = None
+        if output_directory:
+            output_dir_str = str(Path(output_directory).expanduser().resolve())
+
         if files:
             # Multipart form upload
             form_data = {
@@ -54,6 +102,9 @@ class TasksResource:
                 "providerName": provider_name,
                 "modelId": model_id,
             }
+            if output_dir_str:
+                form_data["outputDirectory"] = output_dir_str
+
             file_tuples = []
             for file_path in files:
                 path = Path(file_path)
@@ -72,14 +123,18 @@ class TasksResource:
                     f.close()
         else:
             # JSON request
+            body: dict[str, str] = {
+                "description": description,
+                "providerName": provider_name,
+                "modelId": model_id,
+            }
+            if output_dir_str:
+                body["outputDirectory"] = output_dir_str
+
             response = self._client._request(
                 "POST",
                 "/tasks",
-                json={
-                    "description": description,
-                    "providerName": provider_name,
-                    "modelId": model_id,
-                },
+                json=body,
             )
 
         return Task.model_validate(response.json())
@@ -90,9 +145,10 @@ class TasksResource:
         provider_name: str,
         model_id: str,
         files: Optional[list[Union[str, Path]]] = None,
+        output_directory: Optional[Union[str, Path]] = None,
         poll_interval: float = 5.0,
         timeout: Optional[float] = 1200.0,
-    ) -> Task:
+    ) -> TaskResult:
         """Create a task and wait for it to complete.
 
         This is a blocking method that creates a task and polls until it reaches
@@ -103,30 +159,44 @@ class TasksResource:
             provider_name: The AI provider name (e.g., "OpenRouter").
             model_id: The model ID (e.g., "anthropic/claude-sonnet-4.5").
             files: Optional list of file paths to upload with the task.
+            output_directory: Local directory where Hivecrew should copy output files
+                from the VM's outbox after task completion. Overrides the default
+                output directory configured in Hivecrew settings. The SDK will
+                automatically collect file paths from this directory.
+                Example: "./task_outputs"
             poll_interval: How often to check task status, in seconds. Default 5.
             timeout: Maximum time to wait for completion, in seconds. Default 1200 (20 minutes).
                 Set to None for no timeout.
 
         Returns:
-            The completed task with full details.
+            TaskResult containing the completed task and list of output file paths.
 
         Raises:
             TaskTimeoutError: If the task doesn't complete within the timeout.
 
         Example:
-            >>> task = client.tasks.run(
-            ...     description="Take a screenshot of the desktop",
+            >>> result = client.tasks.run(
+            ...     description="Create a report and save it to the outbox",
             ...     provider_name="OpenRouter",
             ...     model_id="anthropic/claude-sonnet-4.5",
-            ...     timeout=300.0
+            ...     output_directory="./outputs"
             ... )
-            >>> print(f"Task {task.status}: {task.result_summary}")
+            >>> print(f"Task {result.status}: {result.result_summary}")
+            >>> for path in result.output_files:
+            ...     print(f"Output: {path}")
         """
+        # Resolve output directory to absolute path
+        output_dir: Optional[Path] = None
+        if output_directory:
+            output_dir = Path(output_directory).expanduser().resolve()
+            output_dir.mkdir(parents=True, exist_ok=True)
+
         task = self.create(
             description=description,
             provider_name=provider_name,
             model_id=model_id,
             files=files,
+            output_directory=output_dir,
         )
 
         start_time = time.monotonic()
@@ -135,7 +205,7 @@ class TasksResource:
             task = self.get(task.id)
 
             if task.is_terminal():
-                return task
+                break
 
             if timeout is not None:
                 elapsed = time.monotonic() - start_time
@@ -143,6 +213,20 @@ class TasksResource:
                     raise TaskTimeoutError(task.id, timeout)
 
             time.sleep(poll_interval)
+
+        # Collect output files from the output directory
+        output_files: list[Path] = []
+        if output_dir and task.was_successful:
+            # Brief delay to allow file sync to complete
+            time.sleep(1.0)
+
+            # List all files in the output directory
+            if output_dir.exists():
+                for item in output_dir.iterdir():
+                    if item.is_file():
+                        output_files.append(item)
+
+        return TaskResult(task=task, output_files=output_files)
 
     def list(
         self,

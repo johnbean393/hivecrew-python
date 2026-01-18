@@ -11,14 +11,14 @@ class TaskStatus(str, Enum):
     """Task execution status."""
 
     QUEUED = "queued"
-    WAITING_FOR_VM = "waitingForVM"
+    WAITING_FOR_VM = "waiting_for_vm"
     RUNNING = "running"
     PAUSED = "paused"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-    TIMED_OUT = "timedOut"
-    MAX_ITERATIONS = "maxIterations"
+    TIMED_OUT = "timed_out"
+    MAX_ITERATIONS = "max_iterations"
 
 
 class TaskAction(str, Enum):

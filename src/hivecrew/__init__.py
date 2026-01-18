@@ -27,6 +27,7 @@ from hivecrew.models import (
     TemplateList,
     TokenUsage,
 )
+from hivecrew.resources.tasks import TaskResult
 
 __version__ = "0.1.0"
 
@@ -45,6 +46,7 @@ __all__ = [
     # Models
     "Task",
     "TaskList",
+    "TaskResult",
     "TaskStatus",
     "TaskAction",
     "TaskFilesResponse",
