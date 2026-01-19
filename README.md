@@ -11,7 +11,7 @@ pip install hivecrew
 For development:
 
 ```bash
-git clone https://github.com/hivecrew/hivecrew-python.git
+git clone https://github.com/johnbean393/hivecrew-python.git
 cd hivecrew-python
 pip install -e ".[dev]"
 ```
