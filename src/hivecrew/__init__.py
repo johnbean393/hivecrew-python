@@ -16,6 +16,12 @@ from hivecrew.models import (
     Model,
     Provider,
     ProviderList,
+    Recurrence,
+    RecurrenceType,
+    ScheduleConfig,
+    ScheduledTask,
+    ScheduledTaskList,
+    ScheduleType,
     SystemConfig,
     SystemStatus,
     Task,
@@ -43,7 +49,7 @@ __all__ = [
     "PayloadTooLargeError",
     "ServerError",
     "TaskTimeoutError",
-    # Models
+    # Task Models
     "Task",
     "TaskList",
     "TaskResult",
@@ -52,11 +58,21 @@ __all__ = [
     "TaskFilesResponse",
     "TokenUsage",
     "FileInfo",
+    # Schedule Models
+    "ScheduleConfig",
+    "ScheduledTask",
+    "ScheduledTaskList",
+    "ScheduleType",
+    "Recurrence",
+    "RecurrenceType",
+    # Provider Models
     "Provider",
     "ProviderList",
     "Model",
+    # Template Models
     "Template",
     "TemplateList",
+    # System Models
     "SystemStatus",
     "SystemConfig",
 ]

@@ -11,14 +11,79 @@ class TaskStatus(str, Enum):
     """Task execution status."""
 
     QUEUED = "queued"
-    WAITING_FOR_VM = "waiting_for_vm"
+    WAITING_FOR_VM = "waitingForVM"
     RUNNING = "running"
     PAUSED = "paused"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-    TIMED_OUT = "timed_out"
-    MAX_ITERATIONS = "max_iterations"
+    TIMED_OUT = "timedOut"
+    MAX_ITERATIONS = "maxIterations"
+
+
+class RecurrenceType(str, Enum):
+    """Recurrence type for scheduled tasks."""
+
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+
+
+class Recurrence(BaseModel):
+    """Recurrence configuration for scheduled tasks."""
+
+    type: RecurrenceType
+    days_of_week: Optional[list[int]] = Field(default=None, alias="daysOfWeek")
+    day_of_month: Optional[int] = Field(default=None, alias="dayOfMonth")
+    hour: int
+    minute: int
+
+    model_config = {"populate_by_name": True}
+
+
+class ScheduleConfig(BaseModel):
+    """Schedule configuration for creating scheduled tasks."""
+
+    scheduled_at: Optional[datetime] = Field(default=None, alias="scheduledAt")
+    recurrence: Optional[Recurrence] = None
+
+    model_config = {"populate_by_name": True}
+
+
+class ScheduleType(str, Enum):
+    """Type of schedule."""
+
+    ONE_TIME = "one-time"
+    RECURRING = "recurring"
+
+
+class ScheduledTask(BaseModel):
+    """A scheduled task template."""
+
+    id: str
+    title: str
+    description: str
+    provider_name: str = Field(alias="providerName")
+    model_id: str = Field(alias="modelId")
+    output_directory: Optional[str] = Field(default=None, alias="outputDirectory")
+    is_enabled: bool = Field(alias="isEnabled")
+    schedule_type: ScheduleType = Field(alias="scheduleType")
+    scheduled_at: Optional[datetime] = Field(default=None, alias="scheduledAt")
+    recurrence: Optional[Recurrence] = None
+    next_run_at: Optional[datetime] = Field(default=None, alias="nextRunAt")
+    last_run_at: Optional[datetime] = Field(default=None, alias="lastRunAt")
+    created_at: datetime = Field(alias="createdAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class ScheduledTaskList(BaseModel):
+    """Paginated list of scheduled tasks."""
+
+    schedules: list[ScheduledTask]
+    total: int
+    limit: int
+    offset: int
 
 
 class TaskAction(str, Enum):

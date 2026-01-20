@@ -16,6 +16,7 @@ from hivecrew.exceptions import (
     ServerError,
 )
 from hivecrew.resources.providers import ProvidersResource
+from hivecrew.resources.schedules import SchedulesResource
 from hivecrew.resources.system import SystemResource
 from hivecrew.resources.tasks import TasksResource
 from hivecrew.resources.templates import TemplatesResource
@@ -69,6 +70,7 @@ class HivecrewClient:
 
         # Initialize resource endpoints
         self.tasks = TasksResource(self)
+        self.schedules = SchedulesResource(self)
         self.providers = ProvidersResource(self)
         self.templates = TemplatesResource(self)
         self.system = SystemResource(self)

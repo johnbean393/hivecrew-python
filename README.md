@@ -113,6 +113,67 @@ client.tasks.pause(task_id)
 client.tasks.resume(task_id, instructions="Also take a screenshot when done")
 ```
 
+### Scheduled Tasks
+
+Scheduled tasks are task templates that run at specified times. When triggered, they create a new task that runs immediately.
+
+```python
+from datetime import datetime, timezone
+from hivecrew import HivecrewClient, ScheduleConfig, Recurrence, RecurrenceType
+
+client = HivecrewClient()
+
+# Create a one-time scheduled task
+scheduled = client.schedules.create(
+    title="Generate Report",
+    description="Generate the weekly status report",
+    provider_name="OpenRouter",
+    model_id="anthropic/claude-sonnet-4.5",
+    schedule=ScheduleConfig(
+        scheduled_at=datetime(2026, 1, 21, 9, 0, 0, tzinfo=timezone.utc)
+    )
+)
+print(f"Next run at: {scheduled.next_run_at}")
+
+# Create a recurring scheduled task (every Monday at 9am)
+scheduled = client.schedules.create(
+    title="Weekly Email Summary",
+    description="Check emails and create a summary",
+    provider_name="OpenRouter",
+    model_id="anthropic/claude-sonnet-4.5",
+    schedule=ScheduleConfig(
+        recurrence=Recurrence(
+            type=RecurrenceType.WEEKLY,
+            days_of_week=[2],  # Monday (1=Sunday)
+            hour=9,
+            minute=0
+        )
+    )
+)
+```
+
+### Managing Scheduled Tasks
+
+```python
+# List all scheduled tasks
+result = client.schedules.list(limit=10)
+for schedule in result.schedules:
+    print(f"{schedule.title}: next run at {schedule.next_run_at}")
+
+# Get a specific scheduled task
+schedule = client.schedules.get(schedule_id)
+
+# Update a scheduled task
+client.schedules.update(schedule_id, is_enabled=False)
+
+# Trigger a scheduled task to run immediately
+task = client.schedules.run_now(schedule_id)
+print(f"Task created: {task.id}")
+
+# Delete a scheduled task
+client.schedules.delete(schedule_id)
+```
+
 ### Working with Task Files
 
 ```python
@@ -311,14 +372,14 @@ except HivecrewError as e:
 | Status | Description |
 |--------|-------------|
 | `queued` | Waiting to start |
-| `waiting_for_vm` | Waiting for a VM to become available |
+| `waitingForVM` | Waiting for a VM to become available |
 | `running` | Currently executing |
 | `paused` | Paused, waiting for user action |
 | `completed` | Finished successfully |
 | `failed` | Failed with an error |
 | `cancelled` | Cancelled by user |
-| `timed_out` | Exceeded time limit |
-| `max_iterations` | Exceeded iteration limit |
+| `timedOut` | Exceeded time limit |
+| `maxIterations` | Exceeded iteration limit |
 
 ## Requirements
 
